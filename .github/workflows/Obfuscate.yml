@@ -1,0 +1,63 @@
+name: Build Obfuscate BPB Panel
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Runs everyday at 1:00 AM UTC
+    - cron: "0 1 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  obfuscate-worker:
+    name: Obfuscate Worker Script
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+
+      - name: Install javascript-obfuscator
+        run: npm install -g javascript-obfuscator@4.0.0
+
+      - name: Download unobfuscated worker script
+        run: |
+          if ! curl -fsSL -o origin.js https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/main/build/unobfuscated-worker.js; then
+            echo "❌ Failed to download worker script"
+            exit 1
+          fi
+
+      - name: Obfuscate worker script
+        run: |
+          javascript-obfuscator origin.js \
+            --output build/_worker.js \
+            --compact true \
+            --control-flow-flattening true \
+            --control-flow-flattening-threshold 1 \
+            --dead-code-injection true \
+            --dead-code-injection-threshold 1 \
+            --identifier-names-generator hexadecimal \
+            --rename-globals true \
+            --string-array true \
+            --string-array-encoding 'rc4' \
+            --string-array-threshold 1 \
+            --transform-object-keys true \
+            --unicode-escape-sequence true
+
+      - name: Commit obfuscated worker
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          branch: main
+          commit_message: ":sparkles: Auto-update obfuscated worker script"
+          commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          file_pattern: build/_worker.js
